@@ -1,0 +1,152 @@
+/* Age Verification Gate Popup Styles */
+
+body.age-gate-locked {
+  overflow: hidden !important;
+  height: 100vh !important;
+  position: fixed !important;
+  width: 100% !important;
+}
+
+.age-gate-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.age-gate-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.age-gate-overlay.blur-bg {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.age-gate-modal {
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  padding: 32px 28px;
+  text-align: center;
+  box-sizing: border-box;
+  transform: scale(0.92);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.age-gate-overlay.active .age-gate-modal {
+  transform: scale(1);
+}
+
+.age-gate-logo {
+  max-height: 80px;
+  max-width: 220px;
+  object-fit: contain;
+  margin: 0 auto 20px auto;
+  display: block;
+}
+
+.age-gate-heading {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 12px 0;
+}
+
+.age-gate-description {
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+  opacity: 0.9;
+}
+
+.age-gate-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.age-gate-btn {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  box-sizing: border-box;
+}
+
+.age-gate-btn:hover {
+  opacity: 0.9;
+}
+
+.age-gate-btn:active {
+  transform: scale(0.98);
+}
+
+.age-gate-btn-secondary {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+
+.age-gate-dob-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.age-gate-dob-inputs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.age-gate-select {
+  flex: 1;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #111;
+  cursor: pointer;
+}
+
+.age-gate-error {
+  color: #d9381e;
+  font-size: 14px;
+  margin-top: 8px;
+  display: none;
+  font-weight: 600;
+}
+
+.age-gate-error.active {
+  display: block;
+}
+
+@media (max-width: 480px) {
+  .age-gate-modal {
+    padding: 24px 18px;
+  }
+  .age-gate-heading {
+    font-size: 20px;
+  }
+  .age-gate-description {
+    font-size: 14px;
+  }
+  .age-gate-dob-inputs {
+    flex-direction: column;
+  }
+}

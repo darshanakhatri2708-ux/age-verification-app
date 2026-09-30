@@ -1,0 +1,78 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model Settings {
+  id                String   @id @default(uuid())
+  shop              String   @unique
+  enabled           Boolean  @default(true)
+  minAge            Int      @default(18)
+  method            String   @default("buttons") // "buttons" or "dob"
+  rememberDays      Int      @default(30)
+  rememberOption    String   @default("30") // "session", "1", "7", "30", "90", "365", "forever"
+  reverifyOnClose   Boolean  @default(false)
+  logoUrl           String   @default("")
+  heading           String   @default("Age Verification Required")
+  description       String   @default("You must be of legal age to view this site. Please verify your age.")
+  yesButtonText     String   @default("Yes, I am 18 or older")
+  noButtonText      String   @default("No, I am under 18")
+  redirectUrl       String   @default("https://google.com")
+  bgColor           String   @default("#ffffff")
+  textColor         String   @default("#111111")
+  overlayColor      String   @default("rgba(0,0,0,0.75)")
+  buttonBgColor     String   @default("#000000")
+  buttonTextColor   String   @default("#ffffff")
+  popupWidth        Int      @default(480)
+  borderRadius      Int      @default(12)
+  blurBackground    Boolean  @default(true)
+  targetPages       String   @default("all") // "all", "index", "collection", "product"
+  geoMode           String   @default("disabled") // "disabled", "allow", "block"
+  geoCountries      String   @default("") // Comma-separated ISO codes e.g. "US,CA,GB"
+  geoMessage        String   @default("Access Restricted: Store is not available in your country/region.")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  shop      String
+  event     String   // "verified", "rejected"
+  device    String   @default("desktop") // "desktop", "mobile", "tablet"
+  country   String   @default("US")
+  createdAt DateTime @default(now())
+
+  @@index([shop, createdAt])
+}
+
+

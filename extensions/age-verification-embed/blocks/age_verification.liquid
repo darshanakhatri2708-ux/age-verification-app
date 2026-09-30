@@ -1,0 +1,372 @@
+{% assign current_year = 'now' | date: '%Y' | plus: 0 %}
+{% assign app_settings = shop.metafields.age_verification.settings.value %}
+
+{% if app_settings != blank %}
+  {% assign is_enabled = app_settings.enabled %}
+  {% assign min_age = app_settings.minAge | default: 18 %}
+  {% assign method = app_settings.method | default: 'buttons' %}
+  {% assign remember_days = app_settings.rememberDays | default: 30 %}
+  {% assign remember_option = app_settings.rememberOption | default: '30' %}
+  {% assign reverify_on_close = app_settings.reverifyOnClose %}
+  {% assign target_pages = app_settings.targetPages | default: 'all' %}
+  {% assign geo_mode = app_settings.geoMode | default: 'disabled' %}
+  {% assign geo_countries_str = app_settings.geoCountries | default: '' | downcase %}
+  {% assign geo_message = app_settings.geoMessage | default: 'Access Restricted: Store is not available in your country/region.' %}
+  {% assign redirect_url = app_settings.redirectUrl | default: 'https://google.com' %}
+  {% assign logo_url = app_settings.logoUrl %}
+  {% assign heading = app_settings.heading | default: 'Age Verification Required' %}
+  {% assign description = app_settings.description | default: 'You must be of legal age to view this site. Please verify your age.' %}
+  {% assign yes_button_text = app_settings.yesButtonText | default: 'Yes, I am 18 or older' %}
+  {% assign no_button_text = app_settings.noButtonText | default: 'No, I am under 18' %}
+  {% assign bg_color = app_settings.bgColor | default: '#ffffff' %}
+  {% assign text_color = app_settings.textColor | default: '#111111' %}
+  {% assign overlay_color = app_settings.overlayColor | default: 'rgba(0,0,0,0.75)' %}
+  {% assign button_bg_color = app_settings.buttonBgColor | default: '#000000' %}
+  {% assign button_text_color = app_settings.buttonTextColor | default: '#ffffff' %}
+  {% assign popup_width = app_settings.popupWidth | default: 480 %}
+  {% assign border_radius = app_settings.borderRadius | default: 12 %}
+  {% assign blur_background = app_settings.blurBackground %}
+{% else %}
+  {% assign is_enabled = true %}
+  {% assign min_age = block.settings.min_age | default: 18 %}
+  {% assign method = block.settings.verification_method | default: 'buttons' %}
+  {% assign remember_days = block.settings.remember_days | default: 30 %}
+  {% assign remember_option = '30' %}
+  {% assign reverify_on_close = false %}
+  {% assign target_pages = block.settings.target_pages | default: 'all' %}
+  {% assign geo_mode = 'disabled' %}
+  {% assign geo_countries_str = '' %}
+  {% assign geo_message = 'Access Restricted: Store is not available in your region.' %}
+  {% assign redirect_url = block.settings.redirect_url | default: 'https://google.com' %}
+  {% assign logo_url = block.settings.logo | image_url: width: 300 %}
+  {% assign heading = block.settings.heading | default: 'Age Verification Required' %}
+  {% assign description = block.settings.description | default: 'You must be of legal age to view this site. Please verify your age.' %}
+  {% assign yes_button_text = block.settings.yes_button_text | default: 'Yes, I am of legal age' %}
+  {% assign no_button_text = block.settings.no_button_text | default: 'No, I am underage' %}
+  {% assign bg_color = block.settings.bg_color | default: '#ffffff' %}
+  {% assign text_color = block.settings.text_color | default: '#111111' %}
+  {% assign overlay_color = block.settings.overlay_color | default: 'rgba(0,0,0,0.75)' %}
+  {% assign button_bg_color = block.settings.button_bg_color | default: '#000000' %}
+  {% assign button_text_color = block.settings.button_text_color | default: '#ffffff' %}
+  {% assign popup_width = block.settings.popup_width | default: 480 %}
+  {% assign border_radius = block.settings.border_radius | default: 12 %}
+  {% assign blur_background = block.settings.blur_background %}
+{% endif %}
+
+<!-- Check Geographic Restrictions -->
+{% assign visitor_country = localization.country.iso_code | downcase %}
+{% assign geo_blocked = false %}
+
+{% if geo_mode == 'allow' and geo_countries_str != blank %}
+  {% unless geo_countries_str contains visitor_country %}
+    {% assign geo_blocked = true %}
+  {% endunless %}
+{% elsif geo_mode == 'block' and geo_countries_str != blank %}
+  {% if geo_countries_str contains visitor_country and visitor_country != blank %}
+    {% assign geo_blocked = true %}
+  {% endif %}
+{% endif %}
+
+{% assign show_on_page = false %}
+{% if target_pages == 'all' or target_pages == blank %}
+  {% assign show_on_page = true %}
+{% elsif target_pages == 'index' and request.page_type == 'index' %}
+  {% assign show_on_page = true %}
+{% elsif target_pages == 'collection' and request.page_type == 'collection' %}
+  {% assign show_on_page = true %}
+{% elsif target_pages == 'product' and request.page_type == 'product' %}
+  {% assign show_on_page = true %}
+{% endif %}
+
+{% if geo_blocked %}
+  <!-- Geo-Blocked Modal -->
+  <div 
+    id="GeoGateOverlay" 
+    class="age-gate-overlay active{% if blur_background %} blur-bg{% endif %}"
+    style="background-color: {{ overlay_color }};"
+  >
+    <div 
+      class="age-gate-modal"
+      style="
+        background-color: {{ bg_color }};
+        color: {{ text_color }};
+        max-width: {{ popup_width }}px;
+        border-radius: {{ border_radius }}px;
+      "
+    >
+      {% if logo_url != blank %}
+        <img src="{{ logo_url }}" alt="{{ shop.name }}" class="age-gate-logo" loading="eager" />
+      {% endif %}
+      <h2 class="age-gate-heading" style="color: {{ text_color }};">Access Restricted</h2>
+      <p class="age-gate-description" style="color: {{ text_color }};">{{ geo_message }}</p>
+    </div>
+  </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      document.body.classList.add("age-gate-locked");
+    });
+  </script>
+
+{% elsif is_enabled != false and show_on_page == true %}
+  <!-- Age Verification Gate -->
+  <div 
+    id="AgeGateOverlay" 
+    class="age-gate-overlay{% if blur_background %} blur-bg{% endif %}"
+    data-min-age="{{ min_age }}"
+    data-remember-days="{{ remember_days }}"
+    data-remember-option="{{ remember_option }}"
+    data-reverify-on-close="{% if reverify_on_close %}true{% else %}false{% endif %}"
+    data-redirect-url="{{ redirect_url }}"
+    style="
+      background-color: {{ overlay_color }};
+    "
+  >
+    <div 
+      class="age-gate-modal"
+      style="
+        background-color: {{ bg_color }};
+        color: {{ text_color }};
+        max-width: {{ popup_width }}px;
+        border-radius: {{ border_radius }}px;
+      "
+    >
+      {% if logo_url != blank %}
+        <img 
+          src="{{ logo_url }}" 
+          alt="{{ shop.name }}" 
+          class="age-gate-logo" 
+          loading="eager"
+        />
+      {% endif %}
+
+      <h2 class="age-gate-heading" style="color: {{ text_color }};">
+        {{ heading }}
+      </h2>
+
+      <p class="age-gate-description" style="color: {{ text_color }};">
+        {{ description }}
+      </p>
+
+      <!-- Yes / No Buttons Method -->
+      <div class="age-gate-buttons" {% if method == 'dob' %}style="display: none;"{% endif %}>
+        <button 
+          type="button" 
+          id="AgeGateYesBtn" 
+          class="age-gate-btn" 
+          style="
+            background-color: {{ button_bg_color }};
+            color: {{ button_text_color }};
+          "
+        >
+          {{ yes_button_text }}
+        </button>
+
+        <button 
+          type="button" 
+          id="AgeGateNoBtn" 
+          class="age-gate-btn age-gate-btn-secondary"
+          style="color: {{ text_color }};"
+        >
+          {{ no_button_text }}
+        </button>
+      </div>
+
+      <!-- Date of Birth Method -->
+      <div class="age-gate-dob-container" {% if method != 'dob' %}style="display: none;"{% endif %}>
+        <div class="age-gate-dob-inputs">
+          <select id="AgeGateMonth" class="age-gate-select">
+            <option value="">Month</option>
+            <option value="1">Jan</option>
+            <option value="2">Feb</option>
+            <option value="3">Mar</option>
+            <option value="4">Apr</option>
+            <option value="5">May</option>
+            <option value="6">Jun</option>
+            <option value="7">Jul</option>
+            <option value="8">Aug</option>
+            <option value="9">Sep</option>
+            <option value="10">Oct</option>
+            <option value="11">Nov</option>
+            <option value="12">Dec</option>
+          </select>
+
+          <select id="AgeGateDay" class="age-gate-select">
+            <option value="">Day</option>
+            {% for i in (1..31) %}
+              <option value="{{ i }}">{{ i }}</option>
+            {% endfor %}
+          </select>
+
+          <select id="AgeGateYear" class="age-gate-select">
+            <option value="">Year</option>
+            {% for i in (1920..current_year) reversed %}
+              <option value="{{ i }}">{{ i }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div id="AgeGateError" class="age-gate-error"></div>
+
+        <button 
+          type="button" 
+          id="AgeGateDobSubmitBtn" 
+          class="age-gate-btn"
+          style="
+            background-color: {{ button_bg_color }};
+            color: {{ button_text_color }};
+          "
+        >
+          Verify Age
+        </button>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Age Verification Gate",
+  "target": "body",
+  "stylesheet": "age-verification.css",
+  "javascript": "age-verification.js",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Verification Rules"
+    },
+    {
+      "type": "select",
+      "id": "target_pages",
+      "label": "Show Popup On",
+      "options": [
+        { "value": "all", "label": "All Pages" },
+        { "value": "index", "label": "Homepage Only" },
+        { "value": "collection", "label": "Collection Pages Only" },
+        { "value": "product", "label": "Product Pages Only" }
+      ],
+      "default": "all"
+    },
+    {
+      "type": "select",
+      "id": "verification_method",
+      "label": "Verification Method",
+      "options": [
+        { "value": "buttons", "label": "Yes / No Buttons" },
+        { "value": "dob", "label": "Date of Birth Selector" }
+      ],
+      "default": "buttons"
+    },
+    {
+      "type": "number",
+      "id": "min_age",
+      "label": "Minimum Required Age",
+      "default": 18
+    },
+    {
+      "type": "number",
+      "id": "remember_days",
+      "label": "Remember Verification (Days)",
+      "default": 30
+    },
+    {
+      "type": "text",
+      "id": "redirect_url",
+      "label": "Underage Redirect URL",
+      "default": "https://google.com"
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "Logo Image"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Age Verification Required"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "Description",
+      "default": "You must be of legal age to view this site. Please verify your age."
+    },
+    {
+      "type": "text",
+      "id": "yes_button_text",
+      "label": "Yes Button Text",
+      "default": "Yes, I am of legal age"
+    },
+    {
+      "type": "text",
+      "id": "no_button_text",
+      "label": "No Button Text",
+      "default": "No, I am underage"
+    },
+    {
+      "type": "header",
+      "content": "Styling"
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Popup Background Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text Color",
+      "default": "#111111"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Overlay Background Color",
+      "default": "rgba(0,0,0,0.75)"
+    },
+    {
+      "type": "color",
+      "id": "button_bg_color",
+      "label": "Primary Button Background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Primary Button Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "popup_width",
+      "min": 320,
+      "max": 650,
+      "step": 10,
+      "unit": "px",
+      "label": "Popup Max Width",
+      "default": 480
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "label": "Border Radius",
+      "default": 12
+    },
+    {
+      "type": "checkbox",
+      "id": "blur_background",
+      "label": "Enable Background Blur",
+      "default": true
+    }
+  ]
+}
+{% endschema %}
