@@ -12,7 +12,6 @@ import {
   Box,
   Divider,
   Badge,
-  List,
 } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
