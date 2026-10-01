@@ -21,7 +21,12 @@ export const loader = async ({ request }) => {
   const realEvents = await prisma.analyticsEvent.findMany({
     where: { shop },
     orderBy: { createdAt: "desc" },
-    take: 5000,
+    select: {
+      event: true,
+      device: true,
+      country: true,
+    },
+    take: 2000,
   });
 
   let totalVisitors = realEvents.length;
