@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useLoaderData, useFetcher } from "react-router";
 import {
   Page,
@@ -15,12 +15,23 @@ import {
   Box,
   Divider,
   Grid,
-  Tabs,
   Badge,
 } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+
+const POPULAR_COUNTRIES = [
+  { code: "US", name: "United States" },
+  { code: "CA", name: "Canada" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "AU", name: "Australia" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "IN", name: "India" },
+  { code: "JP", name: "Japan" },
+  { code: "BR", name: "Brazil" },
+];
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -251,7 +262,7 @@ export default function AgeVerificationSettings() {
   const fetcher = useFetcher();
   const shopify = useAppBridge();
 
-  const [selectedTab, setSelectedTab] = useState(0);
+  const [activeTab, setActiveTab] = useState("general"); // "general" | "design" | "terms" | "geo" | "all"
   const [previewDevice, setPreviewDevice] = useState("desktop"); // "desktop" | "mobile"
   const [formState, setFormState] = useState(settings);
 
@@ -283,9 +294,18 @@ export default function AgeVerificationSettings() {
     }));
   };
 
-  const handleTabChange = useCallback((selectedTabIndex) => {
-    setSelectedTab(selectedTabIndex);
-  }, []);
+  const toggleCountry = (code) => {
+    const currentCodes = formState.geoCountries
+      ? formState.geoCountries.split(",").map((c) => c.trim().toUpperCase()).filter(Boolean)
+      : [];
+    let updated;
+    if (currentCodes.includes(code)) {
+      updated = currentCodes.filter((c) => c !== code);
+    } else {
+      updated = [...currentCodes, code];
+    }
+    handleChange("geoCountries", updated.join(", "));
+  };
 
   const handleSave = () => {
     const formData = new FormData();
@@ -296,20 +316,402 @@ export default function AgeVerificationSettings() {
   };
 
   const isSaving = fetcher.state === "submitting" || fetcher.state === "loading";
+  const selectedCountryList = formState.geoCountries
+    ? formState.geoCountries.split(",").map((c) => c.trim().toUpperCase())
+    : [];
 
-  const tabs = [
-    { id: "tab-general", content: "⚙️ General & Rules" },
-    { id: "tab-design", content: "🎨 Design & Content" },
-    { id: "tab-terms", content: "📜 Terms & Conditions" },
-    { id: "tab-geo", content: "🌍 Geo & Translation" },
-  ];
+  // Card Components for clear modular rendering
+  const renderGeneralRulesCard = () => (
+    <BlockStack gap="500" key="section-general">
+      <Card padding="500">
+        <BlockStack gap="400">
+          <InlineStack align="space-between" blockAlign="center">
+            <Text variant="headingMd" as="h2">Age Gate Status</Text>
+            <Badge tone={formState.enabled ? "success" : "attention"}>
+              {formState.enabled ? "Active" : "Disabled"}
+            </Badge>
+          </InlineStack>
+          <Checkbox
+            label="Enable Age Verification Gate on Storefront"
+            checked={formState.enabled}
+            onChange={(checked) => handleChange("enabled", checked)}
+            helpText="When enabled, unverified store visitors will be prompted to verify their age."
+          />
+        </BlockStack>
+      </Card>
+
+      <Card padding="500">
+        <BlockStack gap="400">
+          <Text variant="headingMd" as="h2">Verification Rules</Text>
+
+          <Select
+            label="Show Popup On"
+            options={[
+              { label: "All Store Pages", value: "all" },
+              { label: "Homepage Only", value: "index" },
+              { label: "Collection Pages Only", value: "collection" },
+              { label: "Product Pages Only", value: "product" },
+            ]}
+            value={formState.targetPages || "all"}
+            onChange={(val) => handleChange("targetPages", val)}
+            helpText="Choose which pages trigger the age verification modal."
+          />
+
+          <TextField
+            label="Minimum Required Age"
+            type="number"
+            value={String(formState.minAge)}
+            onChange={(val) => handleChange("minAge", parseInt(val, 10) || 18)}
+            helpText="Minimum age required for access (e.g. 18, 21)."
+            autoComplete="off"
+          />
+
+          <Text variant="bodyMd" fontWeight="semibold" as="p">Verification Method</Text>
+          <BlockStack gap="200">
+            <RadioButton
+              label="Yes / No Buttons (Quick confirmation)"
+              checked={formState.method === "buttons"}
+              id="method-buttons"
+              name="method"
+              onChange={() => handleChange("method", "buttons")}
+            />
+            <RadioButton
+              label="Date of Birth Selector (Exact age calculation)"
+              checked={formState.method === "dob"}
+              id="method-dob"
+              name="method"
+              onChange={() => handleChange("method", "dob")}
+            />
+          </BlockStack>
+
+          <Divider />
+
+          <Text variant="bodyMd" fontWeight="semibold" as="p">Cookie Memory & Persistence</Text>
+          <Select
+            label="Remember Verification For"
+            options={[
+              { label: "Session only (Until browser closes)", value: "session" },
+              { label: "1 day", value: "1" },
+              { label: "7 days", value: "7" },
+              { label: "30 days (Recommended)", value: "30" },
+              { label: "90 days", value: "90" },
+              { label: "1 year (365 days)", value: "365" },
+              { label: "Forever (10 years)", value: "forever" },
+            ]}
+            value={formState.rememberOption || "30"}
+            onChange={handleRememberOptionChange}
+            helpText="Duration before a verified customer needs to verify again."
+          />
+
+          <Checkbox
+            label="Re-verify every time browser closes"
+            checked={formState.reverifyOnClose || formState.rememberOption === "session"}
+            onChange={(checked) => handleChange("reverifyOnClose", checked)}
+            helpText="Forces re-verification whenever a user closes their browser window."
+          />
+
+          <TextField
+            label="Underage Redirect URL"
+            value={formState.redirectUrl}
+            onChange={(val) => handleChange("redirectUrl", val)}
+            helpText="Visitors who fail age verification will be redirected to this URL."
+            autoComplete="off"
+          />
+        </BlockStack>
+      </Card>
+    </BlockStack>
+  );
+
+  const renderDesignCard = () => (
+    <BlockStack gap="500" key="section-design">
+      <Card padding="500">
+        <BlockStack gap="400">
+          <Text variant="headingMd" as="h2">Popup Content</Text>
+          <TextField
+            label="Brand Logo Image URL (Optional)"
+            value={formState.logoUrl}
+            onChange={(val) => handleChange("logoUrl", val)}
+            placeholder="https://yourstore.com/logo.png"
+            helpText="Leave blank if you don't wish to display a logo."
+            autoComplete="off"
+          />
+          <TextField
+            label="Popup Title / Heading"
+            value={formState.heading}
+            onChange={(val) => handleChange("heading", val)}
+            autoComplete="off"
+          />
+          <TextField
+            label="Description Text"
+            value={formState.description}
+            onChange={(val) => handleChange("description", val)}
+            multiline={3}
+            autoComplete="off"
+          />
+          {formState.method === "buttons" && (
+            <InlineStack gap="400" wrap={false}>
+              <Box width="100%">
+                <TextField
+                  label="Yes Button Label"
+                  value={formState.yesButtonText}
+                  onChange={(val) => handleChange("yesButtonText", val)}
+                  autoComplete="off"
+                />
+              </Box>
+              <Box width="100%">
+                <TextField
+                  label="No Button Label"
+                  value={formState.noButtonText}
+                  onChange={(val) => handleChange("noButtonText", val)}
+                  autoComplete="off"
+                />
+              </Box>
+            </InlineStack>
+          )}
+        </BlockStack>
+      </Card>
+
+      <Card padding="500">
+        <BlockStack gap="400">
+          <Text variant="headingMd" as="h2">Styling & Custom Colors</Text>
+
+          <Grid>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <TextField
+                label="Background Color"
+                value={formState.bgColor}
+                onChange={(val) => handleChange("bgColor", val)}
+                autoComplete="off"
+              />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <TextField
+                label="Text Color"
+                value={formState.textColor}
+                onChange={(val) => handleChange("textColor", val)}
+                autoComplete="off"
+              />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <TextField
+                label="Button Color"
+                value={formState.buttonBgColor}
+                onChange={(val) => handleChange("buttonBgColor", val)}
+                autoComplete="off"
+              />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <TextField
+                label="Button Text Color"
+                value={formState.buttonTextColor}
+                onChange={(val) => handleChange("buttonTextColor", val)}
+                autoComplete="off"
+              />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <TextField
+                label="Overlay Color"
+                value={formState.overlayColor}
+                onChange={(val) => handleChange("overlayColor", val)}
+                helpText="e.g. rgba(0,0,0,0.75)"
+                autoComplete="off"
+              />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <TextField
+                label="Popup Max Width (px)"
+                type="number"
+                value={String(formState.popupWidth)}
+                onChange={(val) => handleChange("popupWidth", parseInt(val, 10) || 480)}
+                autoComplete="off"
+              />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <TextField
+                label="Corner Radius (px)"
+                type="number"
+                value={String(formState.borderRadius)}
+                onChange={(val) => handleChange("borderRadius", parseInt(val, 10) || 12)}
+                autoComplete="off"
+              />
+            </Grid.Cell>
+          </Grid>
+
+          <Checkbox
+            label="Enable Blur Backdrop Effect"
+            checked={formState.blurBackground}
+            onChange={(checked) => handleChange("blurBackground", checked)}
+            helpText="Blurs the storefront page content behind the modal overlay."
+          />
+        </BlockStack>
+      </Card>
+    </BlockStack>
+  );
+
+  const renderTermsCard = () => (
+    <Card padding="500" key="section-terms">
+      <BlockStack gap="400">
+        <InlineStack align="space-between" blockAlign="center">
+          <Text variant="headingMd" as="h2">Terms & Conditions Checkbox</Text>
+          <Badge tone={formState.enableTerms ? "success" : "subdued"}>
+            {formState.enableTerms ? "Enabled" : "Off"}
+          </Badge>
+        </InlineStack>
+
+        <Checkbox
+          label="Enable Terms & Conditions Agreement Checkbox on Storefront"
+          checked={formState.enableTerms}
+          onChange={(checked) => handleChange("enableTerms", checked)}
+          helpText="Displays a required terms checkbox on Product & Cart pages before adding to cart or checking out."
+        />
+
+        {formState.enableTerms && (
+          <BlockStack gap="400">
+            <Select
+              label="Target Storefront Pages"
+              options={[
+                { label: "Both Product & Cart pages", value: "both" },
+                { label: "Product page only (above Add to Cart)", value: "product" },
+                { label: "Cart page only (above Checkout button)", value: "cart" },
+              ]}
+              value={formState.termsPlacement || "both"}
+              onChange={(val) => handleChange("termsPlacement", val)}
+            />
+
+            <TextField
+              label="Checkbox Label Text"
+              value={formState.termsText}
+              onChange={(val) => handleChange("termsText", val)}
+              helpText="Text displayed right next to the checkbox."
+              autoComplete="off"
+            />
+
+            <TextField
+              label="Terms & Conditions Policy Page URL"
+              value={formState.termsLink}
+              onChange={(val) => handleChange("termsLink", val)}
+              helpText="Link URL customers can click to read terms (e.g. /policies/terms-of-service)."
+              autoComplete="off"
+            />
+
+            <Checkbox
+              label="Mandatory Agreement (Block Add-to-Cart / Checkout if unchecked)"
+              checked={formState.termsRequired}
+              onChange={(checked) => handleChange("termsRequired", checked)}
+              helpText="Prevents customers from proceeding until they check the agreement box."
+            />
+          </BlockStack>
+        )}
+      </BlockStack>
+    </Card>
+  );
+
+  const renderGeoTranslationCard = () => (
+    <BlockStack gap="500" key="section-geo">
+      <Card padding="500">
+        <BlockStack gap="400">
+          <InlineStack align="space-between" blockAlign="center">
+            <Text variant="headingMd" as="h2">Automatic Country Translation</Text>
+            <Badge tone={formState.autoTranslate ? "success" : "subdued"}>
+              {formState.autoTranslate ? "Auto-Detecting" : "Off"}
+            </Badge>
+          </InlineStack>
+
+          <Checkbox
+            label="Enable Automatic Location-based Translation"
+            checked={formState.autoTranslate}
+            onChange={(checked) => handleChange("autoTranslate", checked)}
+            helpText="Automatically detects visitor IP location and translates the popup into 15+ global languages."
+          />
+
+          <Divider />
+
+          <Box padding="200">
+            <BlockStack gap="200">
+              <Text weight="bold" as="p">Supported Global Languages (Auto-Translated):</Text>
+              <InlineStack gap="200" wrap>
+                <Badge>Spanish (ES, MX)</Badge>
+                <Badge>French (FR, CA)</Badge>
+                <Badge>German (DE, AT)</Badge>
+                <Badge>Italian (IT)</Badge>
+                <Badge>Portuguese (BR, PT)</Badge>
+                <Badge>Japanese (JP)</Badge>
+                <Badge>Dutch (NL)</Badge>
+                <Badge>Hindi (IN)</Badge>
+                <Badge>Arabic (SA, AE)</Badge>
+                <Badge>Chinese (CN, TW)</Badge>
+              </InlineStack>
+            </BlockStack>
+          </Box>
+        </BlockStack>
+      </Card>
+
+      <Card padding="500">
+        <BlockStack gap="400">
+          <Text variant="headingMd" as="h2">Country Geo-Restrictions</Text>
+
+          <Select
+            label="Geo-Restriction Mode"
+            options={[
+              { label: "Disabled (Show popup to all global visitors)", value: "disabled" },
+              { label: "Allow Only Selected Countries (Hide popup for others)", value: "allow" },
+              { label: "Block Selected Countries (Show restriction message)", value: "block" },
+            ]}
+            value={formState.geoMode || "disabled"}
+            onChange={(val) => handleChange("geoMode", val)}
+          />
+
+          {formState.geoMode !== "disabled" && (
+            <BlockStack gap="400">
+              <Text variant="bodySm" tone="subdued" as="p">
+                Click popular countries to toggle or enter 2-letter ISO country codes below:
+              </Text>
+              <InlineStack gap="200" wrap>
+                {POPULAR_COUNTRIES.map((c) => {
+                  const isSelected = selectedCountryList.includes(c.code);
+                  return (
+                    <Button
+                      key={c.code}
+                      size="slim"
+                      variant={isSelected ? "primary" : "secondary"}
+                      onClick={() => toggleCountry(c.code)}
+                    >
+                      {c.name} ({c.code})
+                    </Button>
+                  );
+                })}
+              </InlineStack>
+
+              <TextField
+                label="Target Country Codes (ISO 2-letter codes, comma separated)"
+                value={formState.geoCountries}
+                onChange={(val) => handleChange("geoCountries", val)}
+                placeholder="US, CA, GB, AU, DE"
+                helpText="Enter uppercase 2-letter country codes separated by commas."
+                autoComplete="off"
+              />
+
+              <TextField
+                label="Geo Access Restriction Message"
+                value={formState.geoMessage}
+                onChange={(val) => handleChange("geoMessage", val)}
+                multiline={2}
+                helpText="Message shown to visitors from restricted countries."
+                autoComplete="off"
+              />
+            </BlockStack>
+          )}
+        </BlockStack>
+      </Card>
+    </BlockStack>
+  );
 
   return (
     <Page
       title="Age Verification Dashboard"
-      subtitle="Manage your storefront age verification popup, terms checkbox, geo-restrictions & auto-translation"
+      subtitle="Manage your storefront age verification popup, design, terms checkbox, geo-restrictions & auto-translation"
       primaryAction={{
-        content: "Save Settings",
+        content: "Save All Settings",
         onAction: handleSave,
         loading: isSaving,
       }}
@@ -321,373 +723,73 @@ export default function AgeVerificationSettings() {
           </p>
         </Banner>
 
-        <Card padding="0">
-          <Tabs tabs={tabs} selected={selectedTab} onSelect={handleTabChange} />
+        {/* Clear Navigation Pills (Always visible, NEVER collapses into a hidden dropdown menu) */}
+        <Card padding="300">
+          <InlineStack gap="200" wrap align="start">
+            <Button
+              size="medium"
+              variant={activeTab === "general" ? "primary" : "secondary"}
+              onClick={() => setActiveTab("general")}
+            >
+              ⚙️ General & Rules
+            </Button>
+            <Button
+              size="medium"
+              variant={activeTab === "design" ? "primary" : "secondary"}
+              onClick={() => setActiveTab("design")}
+            >
+              🎨 Design & Content
+            </Button>
+            <Button
+              size="medium"
+              variant={activeTab === "terms" ? "primary" : "secondary"}
+              onClick={() => setActiveTab("terms")}
+            >
+              📜 Terms & Conditions
+            </Button>
+            <Button
+              size="medium"
+              variant={activeTab === "geo" ? "primary" : "secondary"}
+              onClick={() => setActiveTab("geo")}
+            >
+              🌍 Geo & Translation
+            </Button>
+            <Button
+              size="medium"
+              variant={activeTab === "all" ? "primary" : "tertiary"}
+              onClick={() => setActiveTab("all")}
+            >
+              📋 View All Settings on 1 Page
+            </Button>
+          </InlineStack>
         </Card>
 
         <Grid>
-          {/* Main Form Settings Panel */}
+          {/* Main Settings Form Column */}
           <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 7, lg: 7, xl: 7 }}>
             <BlockStack gap="500">
-              {/* TAB 0: General Rules */}
-              {selectedTab === 0 && (
+              {activeTab === "general" && renderGeneralRulesCard()}
+              {activeTab === "design" && renderDesignCard()}
+              {activeTab === "terms" && renderTermsCard()}
+              {activeTab === "geo" && renderGeoTranslationCard()}
+              {activeTab === "all" && (
                 <>
-                  <Card padding="500">
-                    <BlockStack gap="400">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text variant="headingMd" as="h2">Age Gate Status</Text>
-                        <Badge tone={formState.enabled ? "success" : "attention"}>
-                          {formState.enabled ? "Active" : "Disabled"}
-                        </Badge>
-                      </InlineStack>
-                      <Checkbox
-                        label="Enable Age Verification Gate on Storefront"
-                        checked={formState.enabled}
-                        onChange={(checked) => handleChange("enabled", checked)}
-                        helpText="When enabled, unverified store visitors will be prompted to verify their age."
-                      />
-                    </BlockStack>
-                  </Card>
-
-                  <Card padding="500">
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">Verification Rules</Text>
-
-                      <Select
-                        label="Show Popup On"
-                        options={[
-                          { label: "All Store Pages", value: "all" },
-                          { label: "Homepage Only", value: "index" },
-                          { label: "Collection Pages Only", value: "collection" },
-                          { label: "Product Pages Only", value: "product" },
-                        ]}
-                        value={formState.targetPages || "all"}
-                        onChange={(val) => handleChange("targetPages", val)}
-                        helpText="Choose which pages trigger the age verification modal."
-                      />
-
-                      <TextField
-                        label="Minimum Required Age"
-                        type="number"
-                        value={String(formState.minAge)}
-                        onChange={(val) => handleChange("minAge", parseInt(val, 10) || 18)}
-                        helpText="Minimum age required for access (e.g. 18, 21)."
-                        autoComplete="off"
-                      />
-
-                      <Text variant="bodyMd" fontWeight="semibold" as="p">Verification Method</Text>
-                      <BlockStack gap="200">
-                        <RadioButton
-                          label="Yes / No Buttons (Quick confirmation)"
-                          checked={formState.method === "buttons"}
-                          id="method-buttons"
-                          name="method"
-                          onChange={() => handleChange("method", "buttons")}
-                        />
-                        <RadioButton
-                          label="Date of Birth Selector (Exact age calculation)"
-                          checked={formState.method === "dob"}
-                          id="method-dob"
-                          name="method"
-                          onChange={() => handleChange("method", "dob")}
-                        />
-                      </BlockStack>
-
-                      <Divider />
-
-                      <Text variant="bodyMd" fontWeight="semibold" as="p">Cookie Memory & Persistence</Text>
-                      <Select
-                        label="Remember Verification For"
-                        options={[
-                          { label: "Session only (Until browser closes)", value: "session" },
-                          { label: "1 day", value: "1" },
-                          { label: "7 days", value: "7" },
-                          { label: "30 days (Recommended)", value: "30" },
-                          { label: "90 days", value: "90" },
-                          { label: "1 year (365 days)", value: "365" },
-                          { label: "Forever (10 years)", value: "forever" },
-                        ]}
-                        value={formState.rememberOption || "30"}
-                        onChange={handleRememberOptionChange}
-                        helpText="Duration before a verified customer needs to verify again."
-                      />
-
-                      <Checkbox
-                        label="Re-verify every time browser closes"
-                        checked={formState.reverifyOnClose || formState.rememberOption === "session"}
-                        onChange={(checked) => handleChange("reverifyOnClose", checked)}
-                        helpText="Forces re-verification whenever a user closes their browser window."
-                      />
-
-                      <TextField
-                        label="Underage Redirect URL"
-                        value={formState.redirectUrl}
-                        onChange={(val) => handleChange("redirectUrl", val)}
-                        helpText="Visitors who fail age verification will be redirected to this URL."
-                        autoComplete="off"
-                      />
-                    </BlockStack>
-                  </Card>
-                </>
-              )}
-
-              {/* TAB 1: Design & Content */}
-              {selectedTab === 1 && (
-                <>
-                  <Card padding="500">
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">Popup Content</Text>
-                      <TextField
-                        label="Brand Logo Image URL (Optional)"
-                        value={formState.logoUrl}
-                        onChange={(val) => handleChange("logoUrl", val)}
-                        placeholder="https://yourstore.com/logo.png"
-                        helpText="Leave blank if you don't wish to display a logo."
-                        autoComplete="off"
-                      />
-                      <TextField
-                        label="Popup Title / Heading"
-                        value={formState.heading}
-                        onChange={(val) => handleChange("heading", val)}
-                        autoComplete="off"
-                      />
-                      <TextField
-                        label="Description Text"
-                        value={formState.description}
-                        onChange={(val) => handleChange("description", val)}
-                        multiline={3}
-                        autoComplete="off"
-                      />
-                      {formState.method === "buttons" && (
-                        <InlineStack gap="400" wrap={false}>
-                          <Box width="100%">
-                            <TextField
-                              label="Yes Button Label"
-                              value={formState.yesButtonText}
-                              onChange={(val) => handleChange("yesButtonText", val)}
-                              autoComplete="off"
-                            />
-                          </Box>
-                          <Box width="100%">
-                            <TextField
-                              label="No Button Label"
-                              value={formState.noButtonText}
-                              onChange={(val) => handleChange("noButtonText", val)}
-                              autoComplete="off"
-                            />
-                          </Box>
-                        </InlineStack>
-                      )}
-                    </BlockStack>
-                  </Card>
-
-                  <Card padding="500">
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">Styling & Custom Colors</Text>
-
-                      <Grid>
-                        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                          <TextField
-                            label="Background Color"
-                            value={formState.bgColor}
-                            onChange={(val) => handleChange("bgColor", val)}
-                            autoComplete="off"
-                          />
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                          <TextField
-                            label="Text Color"
-                            value={formState.textColor}
-                            onChange={(val) => handleChange("textColor", val)}
-                            autoComplete="off"
-                          />
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                          <TextField
-                            label="Button Color"
-                            value={formState.buttonBgColor}
-                            onChange={(val) => handleChange("buttonBgColor", val)}
-                            autoComplete="off"
-                          />
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                          <TextField
-                            label="Button Text Color"
-                            value={formState.buttonTextColor}
-                            onChange={(val) => handleChange("buttonTextColor", val)}
-                            autoComplete="off"
-                          />
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                          <TextField
-                            label="Overlay Color"
-                            value={formState.overlayColor}
-                            onChange={(val) => handleChange("overlayColor", val)}
-                            helpText="e.g. rgba(0,0,0,0.75)"
-                            autoComplete="off"
-                          />
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                          <TextField
-                            label="Popup Max Width (px)"
-                            type="number"
-                            value={String(formState.popupWidth)}
-                            onChange={(val) => handleChange("popupWidth", parseInt(val, 10) || 480)}
-                            autoComplete="off"
-                          />
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                          <TextField
-                            label="Corner Radius (px)"
-                            type="number"
-                            value={String(formState.borderRadius)}
-                            onChange={(val) => handleChange("borderRadius", parseInt(val, 10) || 12)}
-                            autoComplete="off"
-                          />
-                        </Grid.Cell>
-                      </Grid>
-
-                      <Checkbox
-                        label="Enable Blur Backdrop Effect"
-                        checked={formState.blurBackground}
-                        onChange={(checked) => handleChange("blurBackground", checked)}
-                        helpText="Blurs the storefront page content behind the modal overlay."
-                      />
-                    </BlockStack>
-                  </Card>
-                </>
-              )}
-
-              {/* TAB 2: Terms & Conditions */}
-              {selectedTab === 2 && (
-                <Card padding="500">
-                  <BlockStack gap="400">
-                    <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="headingMd" as="h2">Terms & Conditions Checkbox</Text>
-                      <Badge tone={formState.enableTerms ? "success" : "subdued"}>
-                        {formState.enableTerms ? "Enabled" : "Off"}
-                      </Badge>
-                    </InlineStack>
-
-                    <Checkbox
-                      label="Enable Terms & Conditions Agreement Checkbox on Storefront"
-                      checked={formState.enableTerms}
-                      onChange={(checked) => handleChange("enableTerms", checked)}
-                      helpText="Displays a required terms checkbox on Product & Cart pages before adding to cart or checking out."
-                    />
-
-                    {formState.enableTerms && (
-                      <BlockStack gap="400">
-                        <Select
-                          label="Target Storefront Pages"
-                          options={[
-                            { label: "Both Product & Cart pages", value: "both" },
-                            { label: "Product page only (above Add to Cart)", value: "product" },
-                            { label: "Cart page only (above Checkout button)", value: "cart" },
-                          ]}
-                          value={formState.termsPlacement || "both"}
-                          onChange={(val) => handleChange("termsPlacement", val)}
-                        />
-
-                        <TextField
-                          label="Checkbox Label Text"
-                          value={formState.termsText}
-                          onChange={(val) => handleChange("termsText", val)}
-                          helpText="Text displayed right next to the checkbox."
-                          autoComplete="off"
-                        />
-
-                        <TextField
-                          label="Terms & Conditions Policy Page URL"
-                          value={formState.termsLink}
-                          onChange={(val) => handleChange("termsLink", val)}
-                          helpText="Link URL customers can click to read terms (e.g. /policies/terms-of-service)."
-                          autoComplete="off"
-                        />
-
-                        <Checkbox
-                          label="Mandatory Agreement (Block Add-to-Cart / Checkout if unchecked)"
-                          checked={formState.termsRequired}
-                          onChange={(checked) => handleChange("termsRequired", checked)}
-                          helpText="Prevents customers from proceeding until they check the agreement box."
-                        />
-                      </BlockStack>
-                    )}
-                  </BlockStack>
-                </Card>
-              )}
-
-              {/* TAB 3: Geo Restrictions & Translation */}
-              {selectedTab === 3 && (
-                <>
-                  <Card padding="500">
-                    <BlockStack gap="400">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text variant="headingMd" as="h2">Automatic Country Translation</Text>
-                        <Badge tone={formState.autoTranslate ? "success" : "subdued"}>
-                          {formState.autoTranslate ? "Auto-Detecting" : "Off"}
-                        </Badge>
-                      </InlineStack>
-
-                      <Checkbox
-                        label="Enable Automatic Location-based Translation"
-                        checked={formState.autoTranslate}
-                        onChange={(checked) => handleChange("autoTranslate", checked)}
-                        helpText="Automatically detects visitor IP location and translates the popup into 15+ global languages."
-                      />
-                    </BlockStack>
-                  </Card>
-
-                  <Card padding="500">
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">Country Geo-Restrictions</Text>
-
-                      <Select
-                        label="Geo-Restriction Mode"
-                        options={[
-                          { label: "Disabled (Show popup to all global visitors)", value: "disabled" },
-                          { label: "Allow Only Selected Countries (Hide popup for others)", value: "allow" },
-                          { label: "Block Selected Countries (Show restriction message)", value: "block" },
-                        ]}
-                        value={formState.geoMode || "disabled"}
-                        onChange={(val) => handleChange("geoMode", val)}
-                      />
-
-                      {formState.geoMode !== "disabled" && (
-                        <>
-                          <TextField
-                            label="Target Country Codes (ISO 2-letter codes, comma separated)"
-                            value={formState.geoCountries}
-                            onChange={(val) => handleChange("geoCountries", val)}
-                            placeholder="US, CA, GB, AU, DE"
-                            helpText="Enter uppercase 2-letter country codes separated by commas."
-                            autoComplete="off"
-                          />
-
-                          <TextField
-                            label="Geo Access Restriction Message"
-                            value={formState.geoMessage}
-                            onChange={(val) => handleChange("geoMessage", val)}
-                            multiline={2}
-                            helpText="Message shown to visitors from restricted countries."
-                            autoComplete="off"
-                          />
-                        </>
-                      )}
-                    </BlockStack>
-                  </Card>
+                  {renderGeneralRulesCard()}
+                  {renderDesignCard()}
+                  {renderTermsCard()}
+                  {renderGeoTranslationCard()}
                 </>
               )}
 
               <Box paddingBlockEnd="500">
                 <Button variant="primary" size="large" onClick={handleSave} loading={isSaving}>
-                  Save Settings
+                  Save All Settings
                 </Button>
               </Box>
             </BlockStack>
           </Grid.Cell>
 
-          {/* Right Side: Interactive Live Preview Panel */}
+          {/* Sticky Interactive Live Preview Column */}
           <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 5, lg: 5, xl: 5 }}>
             <Box position="sticky" top="100px">
               <BlockStack gap="500">
@@ -874,6 +976,48 @@ export default function AgeVerificationSettings() {
                     </Box>
                   </BlockStack>
                 </Card>
+
+                {/* Geo Restriction Restricted Visitor Preview Card */}
+                {formState.geoMode !== "disabled" && (
+                  <Card padding="500">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text variant="headingMd" as="h2">Geo-Blocked Visitor Preview</Text>
+                        <Badge tone="attention">Restricted View</Badge>
+                      </InlineStack>
+                      <Divider />
+
+                      <Box
+                        style={{
+                          background: formState.overlayColor || "rgba(0,0,0,0.75)",
+                          backdropFilter: formState.blurBackground ? "blur(8px)" : "none",
+                          padding: "24px 15px",
+                          borderRadius: "8px",
+                          textAlign: "center",
+                          border: "1px solid #e1e3e5",
+                        }}
+                      >
+                        <div
+                          style={{
+                            backgroundColor: formState.bgColor,
+                            color: formState.textColor,
+                            width: "100%",
+                            borderRadius: `${formState.borderRadius}px`,
+                            padding: "20px",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          <h4 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: "bold", color: formState.textColor }}>
+                            Access Restricted
+                          </h4>
+                          <p style={{ margin: 0, fontSize: "13px", opacity: 0.85, color: formState.textColor }}>
+                            {formState.geoMessage || "Access Restricted: Store is not available in your country/region."}
+                          </p>
+                        </div>
+                      </Box>
+                    </BlockStack>
+                  </Card>
+                )}
               </BlockStack>
             </Box>
           </Grid.Cell>
