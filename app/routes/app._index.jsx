@@ -21,18 +21,6 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
-const POPULAR_COUNTRIES = [
-  { code: "US", name: "United States" },
-  { code: "CA", name: "Canada" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "AU", name: "Australia" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "IN", name: "India" },
-  { code: "JP", name: "Japan" },
-  { code: "BR", name: "Brazil" },
-];
-
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
@@ -50,15 +38,11 @@ export const loader = async ({ request }) => {
       rememberOption: "30",
       reverifyOnClose: false,
       targetPages: "all",
-      geoMode: "disabled",
-      geoCountries: "",
-      geoMessage: "Access Restricted: Store is not available in your country/region.",
       enableTerms: false,
       termsPlacement: "both",
       termsText: "I agree to the Terms & Conditions",
       termsLink: "/policies/terms-of-service",
       termsRequired: true,
-      autoTranslate: true,
       logoUrl: "",
       heading: "Age Verification Required",
       description: "You must be of legal age to view this site. Please verify your age.",
@@ -100,16 +84,12 @@ export const action = async ({ request }) => {
   else if (rememberOption === "forever") rememberDays = 3650;
 
   const targetPages = formData.get("targetPages") || "all";
-  const geoMode = formData.get("geoMode") || "disabled";
-  const geoCountries = formData.get("geoCountries") || "";
-  const geoMessage = formData.get("geoMessage") || "Access Restricted: Store is not available in your country/region.";
 
   const enableTerms = formData.get("enableTerms") === "true";
   const termsPlacement = formData.get("termsPlacement") || "both";
   const termsText = formData.get("termsText") || "I agree to the Terms & Conditions";
   const termsLink = formData.get("termsLink") || "/policies/terms-of-service";
   const termsRequired = formData.get("termsRequired") === "true";
-  const autoTranslate = formData.get("autoTranslate") === "true";
 
   const logoUrl = formData.get("logoUrl") || "";
   const heading = formData.get("heading") || "Age Verification Required";
@@ -143,15 +123,15 @@ export const action = async ({ request }) => {
     rememberOption,
     reverifyOnClose,
     targetPages,
-    geoMode,
-    geoCountries,
-    geoMessage,
+    geoMode: existingSettings ? existingSettings.geoMode : "disabled",
+    geoCountries: existingSettings ? existingSettings.geoCountries : "",
+    geoMessage: existingSettings ? existingSettings.geoMessage : "Access Restricted: Store is not available in your country/region.",
     enableTerms,
     termsPlacement,
     termsText,
     termsLink,
     termsRequired,
-    autoTranslate,
+    autoTranslate: existingSettings ? existingSettings.autoTranslate : true,
     logoUrl,
     heading,
     description,
@@ -179,15 +159,11 @@ export const action = async ({ request }) => {
       rememberOption,
       reverifyOnClose,
       targetPages,
-      geoMode,
-      geoCountries,
-      geoMessage,
       enableTerms,
       termsPlacement,
       termsText,
       termsLink,
       termsRequired,
-      autoTranslate,
       logoUrl,
       heading,
       description,
@@ -262,7 +238,7 @@ export default function AgeVerificationSettings() {
   const fetcher = useFetcher();
   const shopify = useAppBridge();
 
-  const [activeTab, setActiveTab] = useState("general"); // "general" | "design" | "terms" | "geo" | "all"
+  const [activeTab, setActiveTab] = useState("general"); // "general" | "design" | "terms"
   const [previewDevice, setPreviewDevice] = useState("desktop"); // "desktop" | "mobile"
   const [formState, setFormState] = useState(settings);
 
@@ -294,19 +270,6 @@ export default function AgeVerificationSettings() {
     }));
   };
 
-  const toggleCountry = (code) => {
-    const currentCodes = formState.geoCountries
-      ? formState.geoCountries.split(",").map((c) => c.trim().toUpperCase()).filter(Boolean)
-      : [];
-    let updated;
-    if (currentCodes.includes(code)) {
-      updated = currentCodes.filter((c) => c !== code);
-    } else {
-      updated = [...currentCodes, code];
-    }
-    handleChange("geoCountries", updated.join(", "));
-  };
-
   const handleSave = () => {
     const formData = new FormData();
     Object.keys(formState).forEach((key) => {
@@ -316,11 +279,8 @@ export default function AgeVerificationSettings() {
   };
 
   const isSaving = fetcher.state === "submitting" || fetcher.state === "loading";
-  const selectedCountryList = formState.geoCountries
-    ? formState.geoCountries.split(",").map((c) => c.trim().toUpperCase())
-    : [];
 
-  // Card Components for clear modular rendering
+  // Card Section Renderers
   const renderGeneralRulesCard = () => (
     <BlockStack gap="500" key="section-general">
       <Card padding="500">
@@ -606,112 +566,12 @@ export default function AgeVerificationSettings() {
     </Card>
   );
 
-  const renderGeoTranslationCard = () => (
-    <BlockStack gap="500" key="section-geo">
-      <Card padding="500">
-        <BlockStack gap="400">
-          <InlineStack align="space-between" blockAlign="center">
-            <Text variant="headingMd" as="h2">Automatic Country Translation</Text>
-            <Badge tone={formState.autoTranslate ? "success" : "subdued"}>
-              {formState.autoTranslate ? "Auto-Detecting" : "Off"}
-            </Badge>
-          </InlineStack>
-
-          <Checkbox
-            label="Enable Automatic Location-based Translation"
-            checked={formState.autoTranslate}
-            onChange={(checked) => handleChange("autoTranslate", checked)}
-            helpText="Automatically detects visitor IP location and translates the popup into 15+ global languages."
-          />
-
-          <Divider />
-
-          <Box padding="200">
-            <BlockStack gap="200">
-              <Text weight="bold" as="p">Supported Global Languages (Auto-Translated):</Text>
-              <InlineStack gap="200" wrap>
-                <Badge>Spanish (ES, MX)</Badge>
-                <Badge>French (FR, CA)</Badge>
-                <Badge>German (DE, AT)</Badge>
-                <Badge>Italian (IT)</Badge>
-                <Badge>Portuguese (BR, PT)</Badge>
-                <Badge>Japanese (JP)</Badge>
-                <Badge>Dutch (NL)</Badge>
-                <Badge>Hindi (IN)</Badge>
-                <Badge>Arabic (SA, AE)</Badge>
-                <Badge>Chinese (CN, TW)</Badge>
-              </InlineStack>
-            </BlockStack>
-          </Box>
-        </BlockStack>
-      </Card>
-
-      <Card padding="500">
-        <BlockStack gap="400">
-          <Text variant="headingMd" as="h2">Country Geo-Restrictions</Text>
-
-          <Select
-            label="Geo-Restriction Mode"
-            options={[
-              { label: "Disabled (Show popup to all global visitors)", value: "disabled" },
-              { label: "Allow Only Selected Countries (Hide popup for others)", value: "allow" },
-              { label: "Block Selected Countries (Show restriction message)", value: "block" },
-            ]}
-            value={formState.geoMode || "disabled"}
-            onChange={(val) => handleChange("geoMode", val)}
-          />
-
-          {formState.geoMode !== "disabled" && (
-            <BlockStack gap="400">
-              <Text variant="bodySm" tone="subdued" as="p">
-                Click popular countries to toggle or enter 2-letter ISO country codes below:
-              </Text>
-              <InlineStack gap="200" wrap>
-                {POPULAR_COUNTRIES.map((c) => {
-                  const isSelected = selectedCountryList.includes(c.code);
-                  return (
-                    <Button
-                      key={c.code}
-                      size="slim"
-                      variant={isSelected ? "primary" : "secondary"}
-                      onClick={() => toggleCountry(c.code)}
-                    >
-                      {c.name} ({c.code})
-                    </Button>
-                  );
-                })}
-              </InlineStack>
-
-              <TextField
-                label="Target Country Codes (ISO 2-letter codes, comma separated)"
-                value={formState.geoCountries}
-                onChange={(val) => handleChange("geoCountries", val)}
-                placeholder="US, CA, GB, AU, DE"
-                helpText="Enter uppercase 2-letter country codes separated by commas."
-                autoComplete="off"
-              />
-
-              <TextField
-                label="Geo Access Restriction Message"
-                value={formState.geoMessage}
-                onChange={(val) => handleChange("geoMessage", val)}
-                multiline={2}
-                helpText="Message shown to visitors from restricted countries."
-                autoComplete="off"
-              />
-            </BlockStack>
-          )}
-        </BlockStack>
-      </Card>
-    </BlockStack>
-  );
-
   return (
     <Page
       title="Age Verification Dashboard"
-      subtitle="Manage your storefront age verification popup, design, terms checkbox, geo-restrictions & auto-translation"
+      subtitle="Manage your storefront age verification popup, design, and terms checkbox settings"
       primaryAction={{
-        content: "Save All Settings",
+        content: "Save Settings",
         onAction: handleSave,
         loading: isSaving,
       }}
@@ -723,7 +583,7 @@ export default function AgeVerificationSettings() {
           </p>
         </Banner>
 
-        {/* Clear Navigation Pills (Always visible, NEVER collapses into a hidden dropdown menu) */}
+        {/* Clear Tab Navigation Bar */}
         <Card padding="300">
           <InlineStack gap="200" wrap align="start">
             <Button
@@ -747,20 +607,6 @@ export default function AgeVerificationSettings() {
             >
               📜 Terms & Conditions
             </Button>
-            <Button
-              size="medium"
-              variant={activeTab === "geo" ? "primary" : "secondary"}
-              onClick={() => setActiveTab("geo")}
-            >
-              🌍 Geo & Translation
-            </Button>
-            <Button
-              size="medium"
-              variant={activeTab === "all" ? "primary" : "tertiary"}
-              onClick={() => setActiveTab("all")}
-            >
-              📋 View All Settings on 1 Page
-            </Button>
           </InlineStack>
         </Card>
 
@@ -771,19 +617,10 @@ export default function AgeVerificationSettings() {
               {activeTab === "general" && renderGeneralRulesCard()}
               {activeTab === "design" && renderDesignCard()}
               {activeTab === "terms" && renderTermsCard()}
-              {activeTab === "geo" && renderGeoTranslationCard()}
-              {activeTab === "all" && (
-                <>
-                  {renderGeneralRulesCard()}
-                  {renderDesignCard()}
-                  {renderTermsCard()}
-                  {renderGeoTranslationCard()}
-                </>
-              )}
 
               <Box paddingBlockEnd="500">
                 <Button variant="primary" size="large" onClick={handleSave} loading={isSaving}>
-                  Save All Settings
+                  Save Settings
                 </Button>
               </Box>
             </BlockStack>
@@ -966,58 +803,10 @@ export default function AgeVerificationSettings() {
                             </button>
                           </div>
                         )}
-
-                        {formState.autoTranslate && (
-                          <div style={{ marginTop: "16px", fontSize: "11px", opacity: 0.65, display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
-                            <span>🌐 Auto-Translating by Visitor Location</span>
-                          </div>
-                        )}
                       </div>
                     </Box>
                   </BlockStack>
                 </Card>
-
-                {/* Geo Restriction Restricted Visitor Preview Card */}
-                {formState.geoMode !== "disabled" && (
-                  <Card padding="500">
-                    <BlockStack gap="400">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text variant="headingMd" as="h2">Geo-Blocked Visitor Preview</Text>
-                        <Badge tone="attention">Restricted View</Badge>
-                      </InlineStack>
-                      <Divider />
-
-                      <Box
-                        style={{
-                          background: formState.overlayColor || "rgba(0,0,0,0.75)",
-                          backdropFilter: formState.blurBackground ? "blur(8px)" : "none",
-                          padding: "24px 15px",
-                          borderRadius: "8px",
-                          textAlign: "center",
-                          border: "1px solid #e1e3e5",
-                        }}
-                      >
-                        <div
-                          style={{
-                            backgroundColor: formState.bgColor,
-                            color: formState.textColor,
-                            width: "100%",
-                            borderRadius: `${formState.borderRadius}px`,
-                            padding: "20px",
-                            boxSizing: "border-box",
-                          }}
-                        >
-                          <h4 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: "bold", color: formState.textColor }}>
-                            Access Restricted
-                          </h4>
-                          <p style={{ margin: 0, fontSize: "13px", opacity: 0.85, color: formState.textColor }}>
-                            {formState.geoMessage || "Access Restricted: Store is not available in your country/region."}
-                          </p>
-                        </div>
-                      </Box>
-                    </BlockStack>
-                  </Card>
-                )}
               </BlockStack>
             </Box>
           </Grid.Cell>
