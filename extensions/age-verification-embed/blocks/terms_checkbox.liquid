@@ -1,0 +1,57 @@
+{% assign app_settings = shop.metafields.age_verification.settings.value %}
+{% assign enable_terms = app_settings.enableTerms %}
+{% assign terms_placement = app_settings.termsPlacement | default: 'both' %}
+{% assign terms_text = app_settings.termsText | default: 'I agree to the Terms & Conditions' %}
+{% assign terms_link = app_settings.termsLink | default: '/policies/terms-of-service' %}
+{% assign terms_required = app_settings.termsRequired %}
+
+{% assign show_terms_block = false %}
+{% if enable_terms != false %}
+  {% if terms_placement == 'both' %}
+    {% assign show_terms_block = true %}
+  {% elsif terms_placement == 'product' and request.page_type == 'product' %}
+    {% assign show_terms_block = true %}
+  {% elsif terms_placement == 'cart' and request.page_type == 'cart' %}
+    {% assign show_terms_block = true %}
+  {% endif %}
+{% endif %}
+
+{% if show_terms_block %}
+  <div class="age-terms-container age-terms-app-block {% if request.page_type == 'cart' %}age-terms-cart{% endif %}">
+    <label class="age-terms-label">
+      <input 
+        type="checkbox" 
+        class="age-terms-checkbox" 
+        id="AgeGateTermsCheckboxBlock" 
+        style="width: 18px !important; height: 18px !important; min-width: 18px !important; min-height: 18px !important; flex-shrink: 0 !important; margin: 0 !important; cursor: pointer;"
+        {% if terms_required %}required{% endif %} 
+      />
+      <span class="age-terms-text" style="display: inline; vertical-align: middle; line-height: 1.4;">
+        {{ terms_text }}
+        {% if terms_link != blank %}
+          <a href="{{ terms_link }}" target="_blank" class="age-terms-link" style="text-decoration: underline; margin-left: 4px;">
+            (Read Terms)
+          </a>
+        {% endif %}
+      </span>
+    </label>
+    <div id="AgeGateTermsErrorBlock" class="age-terms-error" style="color: #d9381e; font-size: 13px; margin-top: 6px; display: none; font-weight: 600;">
+      You must accept the terms and conditions to proceed.
+    </div>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Terms & Conditions",
+  "target": "section",
+  "stylesheet": "age-verification.css",
+  "javascript": "age-verification.js",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "This block displays the Terms & Conditions checkbox configured in your Age Verification App settings."
+    }
+  ]
+}
+{% endschema %}

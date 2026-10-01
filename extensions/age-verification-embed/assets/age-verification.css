@@ -150,3 +150,111 @@ body.age-gate-locked {
     flex-direction: column;
   }
 }
+
+/* Terms & Conditions Checkbox Styles */
+.age-terms-container {
+  margin: 16px 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  text-align: left !important;
+}
+
+.age-terms-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  color: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 400 !important;
+  width: 100% !important;
+}
+
+.age-terms-checkbox {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+  accent-color: #000000 !important;
+  appearance: checkbox !important;
+  -webkit-appearance: checkbox !important;
+}
+
+.age-terms-text {
+  display: inline !important;
+  vertical-align: middle !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  color: inherit !important;
+}
+
+.age-terms-link {
+  color: inherit !important;
+  text-decoration: underline !important;
+  margin-left: 4px !important;
+  font-weight: 500 !important;
+}
+
+.age-terms-error {
+  color: #d9381e !important;
+  font-size: 13px !important;
+  margin-top: 6px !important;
+  display: none !important;
+  font-weight: 600 !important;
+}
+
+.age-terms-error.active {
+  display: block !important;
+}
+
+.age-terms-checkbox.error-highlight {
+  outline: 2px solid #d9381e !important;
+  outline-offset: 2px !important;
+}
+
+/* Cart Page Specific Right Alignment (Above Checkout Button) */
+.age-terms-container.age-terms-cart {
+  width: 100% !important;
+  flex-basis: 100% !important;
+  clear: both !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
+  margin-top: 12px !important;
+  margin-bottom: 12px !important;
+  align-items: flex-end !important;
+  text-align: right !important;
+  max-width: 450px !important;
+}
+
+.age-terms-container.age-terms-cart .age-terms-label {
+  justify-content: flex-end !important;
+  width: 100% !important;
+}
+
+.age-terms-container.age-terms-cart .age-terms-error {
+  text-align: right !important;
+}
+
+
+
+

@@ -25,6 +25,7 @@ export default function App() {
         <s-app-nav>
           <s-link href="/app">Age Verification</s-link>
           <s-link href="/app/geo">Geo Restrictions</s-link>
+          <s-link href="/app/translations">Translations</s-link>
           <s-link href="/app/analytics">Analytics</s-link>
         </s-app-nav>
         <Outlet />

@@ -26,6 +26,12 @@
   {% assign popup_width = app_settings.popupWidth | default: 480 %}
   {% assign border_radius = app_settings.borderRadius | default: 12 %}
   {% assign blur_background = app_settings.blurBackground %}
+  {% assign enable_terms = app_settings.enableTerms %}
+  {% assign terms_placement = app_settings.termsPlacement | default: 'both' %}
+  {% assign terms_text = app_settings.termsText | default: 'I agree to the Terms & Conditions' %}
+  {% assign terms_link = app_settings.termsLink | default: '/policies/terms-of-service' %}
+  {% assign terms_required = app_settings.termsRequired %}
+  {% assign auto_translate = app_settings.autoTranslate %}
 {% else %}
   {% assign is_enabled = true %}
   {% assign min_age = block.settings.min_age | default: 18 %}
@@ -51,6 +57,12 @@
   {% assign popup_width = block.settings.popup_width | default: 480 %}
   {% assign border_radius = block.settings.border_radius | default: 12 %}
   {% assign blur_background = block.settings.blur_background %}
+  {% assign enable_terms = false %}
+  {% assign terms_placement = 'both' %}
+  {% assign terms_text = 'I agree to the Terms & Conditions' %}
+  {% assign terms_link = '/policies/terms-of-service' %}
+  {% assign terms_required = true %}
+  {% assign auto_translate = true %}
 {% endif %}
 
 <!-- Check Geographic Restrictions -->
@@ -117,6 +129,14 @@
     data-remember-option="{{ remember_option }}"
     data-reverify-on-close="{% if reverify_on_close %}true{% else %}false{% endif %}"
     data-redirect-url="{{ redirect_url }}"
+    data-locale="{{ request.locale.iso_code | downcase }}"
+    data-country="{{ visitor_country }}"
+    data-auto-translate="{% if auto_translate != false %}true{% else %}false{% endif %}"
+    data-enable-terms="{% if enable_terms %}true{% else %}false{% endif %}"
+    data-terms-placement="{{ terms_placement }}"
+    data-terms-text="{{ terms_text | escape }}"
+    data-terms-link="{{ terms_link | escape }}"
+    data-terms-required="{% if terms_required %}true{% else %}false{% endif %}"
     style="
       background-color: {{ overlay_color }};
     "

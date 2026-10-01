@@ -60,6 +60,13 @@ model Settings {
   geoMode           String   @default("disabled") // "disabled", "allow", "block"
   geoCountries      String   @default("") // Comma-separated ISO codes e.g. "US,CA,GB"
   geoMessage        String   @default("Access Restricted: Store is not available in your country/region.")
+  enableTerms       Boolean  @default(false)
+  termsPlacement    String   @default("both") // "both", "product", "cart"
+  termsText         String   @default("I agree to the Terms & Conditions")
+  termsLink         String   @default("/policies/terms-of-service")
+  termsRequired     Boolean  @default(true)
+  autoTranslate     Boolean  @default(true)
+  translations      String   @default("{}")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

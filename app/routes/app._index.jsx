@@ -40,6 +40,11 @@ export const loader = async ({ request }) => {
       geoMode: "disabled",
       geoCountries: "",
       geoMessage: "Access Restricted: Store is not available in your country/region.",
+      enableTerms: false,
+      termsPlacement: "both",
+      termsText: "I agree to the Terms & Conditions",
+      termsLink: "/policies/terms-of-service",
+      termsRequired: true,
       logoUrl: "",
       heading: "Age Verification Required",
       description: "You must be of legal age to view this site. Please verify your age.",
@@ -81,6 +86,12 @@ export const action = async ({ request }) => {
   else if (rememberOption === "forever") rememberDays = 3650;
 
   const targetPages = formData.get("targetPages") || "all";
+  const enableTerms = formData.get("enableTerms") === "true";
+  const termsPlacement = formData.get("termsPlacement") || "both";
+  const termsText = formData.get("termsText") || "I agree to the Terms & Conditions";
+  const termsLink = formData.get("termsLink") || "/policies/terms-of-service";
+  const termsRequired = formData.get("termsRequired") === "true";
+
   const logoUrl = formData.get("logoUrl") || "";
   const heading = formData.get("heading") || "Age Verification Required";
   const description = formData.get("description") || "";
@@ -98,6 +109,15 @@ export const action = async ({ request }) => {
 
   const existingSettings = await prisma.settings.findUnique({ where: { shop } });
 
+  let currentTranslations = {};
+  try {
+    currentTranslations = JSON.parse((existingSettings && existingSettings.translations) || "{}");
+  } catch (e) {
+    currentTranslations = {};
+  }
+
+  const autoTranslate = formData.get("autoTranslate") === "true";
+
   const settingsPayload = {
     enabled,
     minAge,
@@ -109,6 +129,12 @@ export const action = async ({ request }) => {
     geoMode: existingSettings ? existingSettings.geoMode : "disabled",
     geoCountries: existingSettings ? existingSettings.geoCountries : "",
     geoMessage: existingSettings ? existingSettings.geoMessage : "Access Restricted: Store is not available in your country/region.",
+    enableTerms,
+    termsPlacement,
+    termsText,
+    termsLink,
+    termsRequired,
+    autoTranslate,
     logoUrl,
     heading,
     description,
@@ -123,6 +149,7 @@ export const action = async ({ request }) => {
     popupWidth,
     borderRadius,
     blurBackground,
+    translations: currentTranslations,
   };
 
   const updatedSettings = await prisma.settings.upsert({
@@ -135,6 +162,11 @@ export const action = async ({ request }) => {
       rememberOption,
       reverifyOnClose,
       targetPages,
+      enableTerms,
+      termsPlacement,
+      termsText,
+      termsLink,
+      termsRequired,
       logoUrl,
       heading,
       description,
@@ -262,7 +294,7 @@ export default function AgeVerificationSettings() {
       <BlockStack gap="500">
         <Banner title="Embed Extension Required" status="info">
           <p>
-            Make sure the <strong>Age Verification Gate</strong> App Embed is enabled in your Shopify Theme Editor to display the popup on your storefront.
+            Make sure the <strong>Age Verification Gate</strong> App Embed is enabled in your Shopify Theme Editor to display the popup and Terms &amp; Conditions checkbox on your storefront.
           </p>
         </Banner>
 
@@ -279,6 +311,57 @@ export default function AgeVerificationSettings() {
                     onChange={(checked) => handleChange("enabled", checked)}
                     helpText="When enabled, unverified visitors will see the age popup before accessing your store."
                   />
+                </BlockStack>
+              </Card>
+
+              {/* Terms & Conditions Checkbox Card */}
+              <Card padding="500">
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">Terms &amp; Conditions Checkbox</Text>
+                  <Checkbox
+                    label="Enable Terms & Conditions Checkbox on Storefront"
+                    checked={formState.enableTerms}
+                    onChange={(checked) => handleChange("enableTerms", checked)}
+                    helpText="Displays an agreement checkbox on Product & Cart pages before customers can add items or checkout."
+                  />
+
+                  {formState.enableTerms && (
+                    <BlockStack gap="400">
+                      <Select
+                        label="Show Checkbox On"
+                        options={[
+                          { label: "Both Product & Cart pages", value: "both" },
+                          { label: "Product page only", value: "product" },
+                          { label: "Cart page only", value: "cart" },
+                        ]}
+                        value={formState.termsPlacement || "both"}
+                        onChange={(val) => handleChange("termsPlacement", val)}
+                      />
+
+                      <TextField
+                        label="Checkbox Label Text"
+                        value={formState.termsText}
+                        onChange={(val) => handleChange("termsText", val)}
+                        helpText="Text displayed next to the checkbox."
+                        autoComplete="off"
+                      />
+
+                      <TextField
+                        label="Terms & Conditions Link URL"
+                        value={formState.termsLink}
+                        onChange={(val) => handleChange("termsLink", val)}
+                        helpText="e.g. /policies/terms-of-service"
+                        autoComplete="off"
+                      />
+
+                      <Checkbox
+                        label="Require agreement before Add to Cart / Checkout"
+                        checked={formState.termsRequired}
+                        onChange={(checked) => handleChange("termsRequired", checked)}
+                        helpText="Prevents customers from adding products or proceeding to checkout until checked."
+                      />
+                    </BlockStack>
+                  )}
                 </BlockStack>
               </Card>
 
@@ -499,135 +582,159 @@ export default function AgeVerificationSettings() {
           {/* Live Preview Panel */}
           <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 5, lg: 5, xl: 5 }}>
             <Box position="sticky" top="100px">
-              <Card padding="500">
-                <BlockStack gap="400">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingMd" as="h2">Live Preview</Text>
-                    <Text variant="bodySm" tone="subdued" as="span">Real-time Popup Mockup</Text>
-                  </InlineStack>
-                  <Divider />
+              <BlockStack gap="500">
+                {/* Terms Preview Card */}
+                {formState.enableTerms && (
+                  <Card padding="500">
+                    <BlockStack gap="300">
+                      <Text variant="headingMd" as="h2">Terms Checkbox Preview</Text>
+                      <Divider />
+                      <Box padding="300" style={{ border: "1px solid #e1e3e5", borderRadius: "6px", backgroundColor: "#fafbfb" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+                          <input type="checkbox" id="preview-terms" defaultChecked={false} />
+                          <label htmlFor="preview-terms">
+                            {formState.termsText || "I agree to the Terms & Conditions"}{" "}
+                            <a href={formState.termsLink || "#"} target="_blank" rel="noreferrer" style={{ textDecoration: "underline", color: "#005bd3" }}>
+                              (Read)
+                            </a>
+                          </label>
+                        </div>
+                      </Box>
+                    </BlockStack>
+                  </Card>
+                )}
 
-                  <Box
-                    style={{
-                      background: formState.overlayColor,
-                      backdropFilter: formState.blurBackground ? "blur(8px)" : "none",
-                      padding: "30px 15px",
-                      borderRadius: "8px",
-                      minHeight: "420px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #e1e3e5",
-                    }}
-                  >
-                    <div
+                {/* Age Popup Live Preview Card */}
+                <Card padding="500">
+                  <BlockStack gap="400">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingMd" as="h2">Live Preview</Text>
+                      <Text variant="bodySm" tone="subdued" as="span">Real-time Popup Mockup</Text>
+                    </InlineStack>
+                    <Divider />
+
+                    <Box
                       style={{
-                        backgroundColor: formState.bgColor,
-                        color: formState.textColor,
-                        width: "100%",
-                        maxWidth: `${formState.popupWidth}px`,
-                        borderRadius: `${formState.borderRadius}px`,
-                        padding: "28px",
-                        textAlign: "center",
-                        boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-                        boxSizing: "border-box",
+                        background: formState.overlayColor,
+                        backdropFilter: formState.blurBackground ? "blur(8px)" : "none",
+                        padding: "30px 15px",
+                        borderRadius: "8px",
+                        minHeight: "420px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid #e1e3e5",
                       }}
                     >
-                      {formState.logoUrl ? (
-                        <img
-                          src={formState.logoUrl}
-                          alt="Logo Preview"
-                          style={{ maxHeight: "60px", marginBottom: "16px", objectFit: "contain" }}
-                          onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                      ) : null}
+                      <div
+                        style={{
+                          backgroundColor: formState.bgColor,
+                          color: formState.textColor,
+                          width: "100%",
+                          maxWidth: `${formState.popupWidth}px`,
+                          borderRadius: `${formState.borderRadius}px`,
+                          padding: "28px",
+                          textAlign: "center",
+                          boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        {formState.logoUrl ? (
+                          <img
+                            src={formState.logoUrl}
+                            alt="Logo Preview"
+                            style={{ maxHeight: "60px", marginBottom: "16px", objectFit: "contain" }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        ) : null}
 
-                      <h3 style={{ margin: "0 0 10px 0", fontSize: "20px", fontWeight: "bold", color: formState.textColor }}>
-                        {formState.heading}
-                      </h3>
-                      <p style={{ margin: "0 0 20px 0", fontSize: "14px", lineHeight: "1.5", opacity: 0.85, color: formState.textColor }}>
-                        {formState.description}
-                      </p>
+                        <h3 style={{ margin: "0 0 10px 0", fontSize: "20px", fontWeight: "bold", color: formState.textColor }}>
+                          {formState.heading}
+                        </h3>
+                        <p style={{ margin: "0 0 20px 0", fontSize: "14px", lineHeight: "1.5", opacity: 0.85, color: formState.textColor }}>
+                          {formState.description}
+                        </p>
 
-                      {formState.method === "buttons" ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                          <button
-                            type="button"
-                            style={{
-                              backgroundColor: formState.buttonBgColor,
-                              color: formState.buttonTextColor,
-                              border: "none",
-                              padding: "12px 20px",
-                              borderRadius: "6px",
-                              fontWeight: "bold",
-                              fontSize: "15px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            {formState.yesButtonText}
-                          </button>
-                          <button
-                            type="button"
-                            style={{
-                              backgroundColor: "transparent",
-                              color: formState.textColor,
-                              border: `1px solid ${formState.textColor}`,
-                              padding: "10px 20px",
-                              borderRadius: "6px",
-                              fontSize: "14px",
-                              cursor: "pointer",
-                              opacity: 0.8,
-                            }}
-                          >
-                            {formState.noButtonText}
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                          <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                            <select style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }} defaultValue="01">
-                              {Array.from({ length: 12 }, (_, i) => (
-                                <option key={i + 1} value={String(i + 1).padStart(2, "0")}>
-                                  {new Date(0, i).toLocaleString("en", { month: "short" })}
-                                </option>
-                              ))}
-                            </select>
-                            <select style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }} defaultValue="15">
-                              {Array.from({ length: 31 }, (_, i) => (
-                                <option key={i + 1} value={String(i + 1).padStart(2, "0")}>
-                                  {i + 1}
-                                </option>
-                              ))}
-                            </select>
-                            <select style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }} defaultValue="2000">
-                              {Array.from({ length: 70 }, (_, i) => (
-                                <option key={i} value={2010 - i}>
-                                  {2010 - i}
-                                </option>
-                              ))}
-                            </select>
+                        {formState.method === "buttons" ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                            <button
+                              type="button"
+                              style={{
+                                backgroundColor: formState.buttonBgColor,
+                                color: formState.buttonTextColor,
+                                border: "none",
+                                padding: "12px 20px",
+                                borderRadius: "6px",
+                                fontWeight: "bold",
+                                fontSize: "15px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {formState.yesButtonText}
+                            </button>
+                            <button
+                              type="button"
+                              style={{
+                                backgroundColor: "transparent",
+                                color: formState.textColor,
+                                border: `1px solid ${formState.textColor}`,
+                                padding: "10px 20px",
+                                borderRadius: "6px",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                                opacity: 0.8,
+                              }}
+                            >
+                              {formState.noButtonText}
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            style={{
-                              backgroundColor: formState.buttonBgColor,
-                              color: formState.buttonTextColor,
-                              border: "none",
-                              padding: "12px 20px",
-                              borderRadius: "6px",
-                              fontWeight: "bold",
-                              fontSize: "15px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Verify Age
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </Box>
-                </BlockStack>
-              </Card>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                              <select style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }} defaultValue="01">
+                                {Array.from({ length: 12 }, (_, i) => (
+                                  <option key={i + 1} value={String(i + 1).padStart(2, "0")}>
+                                    {new Date(0, i).toLocaleString("en", { month: "short" })}
+                                  </option>
+                                ))}
+                              </select>
+                              <select style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }} defaultValue="15">
+                                {Array.from({ length: 31 }, (_, i) => (
+                                  <option key={i + 1} value={String(i + 1).padStart(2, "0")}>
+                                    {i + 1}
+                                  </option>
+                                ))}
+                              </select>
+                              <select style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }} defaultValue="2000">
+                                {Array.from({ length: 70 }, (_, i) => (
+                                  <option key={i} value={2010 - i}>
+                                    {2010 - i}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <button
+                              type="button"
+                              style={{
+                                backgroundColor: formState.buttonBgColor,
+                                color: formState.buttonTextColor,
+                                border: "none",
+                                padding: "12px 20px",
+                                borderRadius: "6px",
+                                fontWeight: "bold",
+                                fontSize: "15px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Verify Age
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </Box>
+                  </BlockStack>
+                </Card>
+              </BlockStack>
             </Box>
           </Grid.Cell>
         </Grid>
